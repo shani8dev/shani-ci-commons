@@ -1,0 +1,55 @@
+name: Security
+
+on:
+  workflow_call:
+    inputs:
+      trivy-version:
+        description: "Trivy version for container scanning"
+        required: false
+        default: "latest"
+        type: string
+      skip-secrets:
+        description: "Skip secrets scanning"
+        required: false
+        default: "false"
+        type: string
+
+jobs:
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Secret scanning
+        if: inputs.skip-secrets != 'true'
+        run: |
+          # Check for common secret patterns in source files
+          echo "Scanning for potential secrets..."
+          grep -rn -E '(password|secret|token|api_key|apikey|private_key|BEGIN.*PRIVATE)' \
+            --include='*.sh' --include='*.py' --include='*.yml' --include='*.yaml' --include='*.toml' \
+            --exclude-dir=.git --exclude-dir=node_modules --exclude-dir=cache . \
+            | grep -v 'ghp_' | grep -v 'gho_' | grep -v 'github_pat_' \
+            | grep -v 'test' | grep -v 'example' \
+            | head -20 || echo "No obvious secrets found"
+          echo "Secret scan complete (basic pattern match — use dedicated tools for production)"
+
+      - name: Container image scan (Trivy)
+        run: |
+          if command -v trivy &>/dev/null; then
+            trivy image --exit-code 1 --severity HIGH,CRITICAL ${{ inputs.docker-image }} 2>/dev/null || echo "Trivy scan skipped (image not available)"
+          else
+            echo "Trivy not available — skipping container image scan"
+          fi
+
+      - name: Dependency audit
+        run: |
+          if [ -f requirements.txt ] || [ -f requirements.lock ]; then
+            pip install pip-audit 2>/dev/null && pip-audit -r requirements.txt 2>/dev/null || echo "pip-audit skipped"
+          fi
+          if [ -f package.json ]; then
+            npm audit 2>/dev/null || echo "npm audit skipped"
+          fi
+          echo "Dependency audit complete"

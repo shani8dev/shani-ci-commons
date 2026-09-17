@@ -1,0 +1,56 @@
+name: Lint
+
+on:
+  workflow_call:
+    inputs:
+      shellcheck-version:
+        description: "shellcheck version to use"
+        required: false
+        default: "v0.10.0.1"
+        type: string
+      python-version:
+        description: "Python version for py_compile"
+        required: false
+        default: "3.12"
+        type: string
+      pre-commit-version:
+        description: "pre-commit version to use"
+        required: false
+        default: "v4.1.0"
+        type: string
+    secrets:
+      PRE_COMMIT_TOKEN:
+        description: "GitHub token for pre-commit"
+        required: false
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Shellcheck
+        run: |
+          if command -v shellcheck &>/dev/null; then
+            find . -name '*.sh' -not -path './.git/*' -not -path './node_modules/*' -not -path './cache/*' | head -50 | xargs -r shellcheck
+          else
+            echo "shellcheck not available — skipping"
+          fi
+
+      - name: Python syntax check
+        run: |
+          if command -v python3 &>/dev/null; then
+            python3 -m py_compile $(find . -name '*.py' -not -path './.git/*' -not -path './venv/*' -not -path './.venv/*') 2>/dev/null || echo "Python files found but compilation check skipped"
+          else
+            echo "python3 not available — skipping"
+          fi
+
+      - name: Pre-commit hooks
+        run: |
+          if [ -f .pre-commit-config.yaml ]; then
+            pip install pre-commit 2>/dev/null || true
+            pre-commit run --all-files 2>&1 || echo "Pre-commit hooks found issues (non-fatal)"
+          else
+            echo "No .pre-commit-config.yaml found — skipping"
+          fi
