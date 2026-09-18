@@ -2,7 +2,7 @@
 
 Shared GitHub Actions reusable workflows for the Shanios ecosystem.
 
-All 15 shani repos reference these templates via `uses:` instead of copy-pasting workflow files.
+All 19 shani repos reference these templates via `uses:` instead of copy-pasting workflow files.
 
 ## Available Workflows
 
