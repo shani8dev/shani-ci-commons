@@ -41,10 +41,10 @@ jobs:
       - name: Install dependencies
         if: inputs.language == 'python' || inputs.language == ''
         run: |
-          if [ -f requirements.txt ]; then
-            pip install -r requirements.txt
-          elif [ -f requirements.lock ]; then
+          if [ -f requirements.lock ]; then
             pip install -r requirements.lock
+          elif [ -f requirements.txt ]; then
+            pip install -r requirements.txt
           elif [ -f pyproject.toml ]; then
             pip install -e ".[dev]" 2>/dev/null || pip install pytest 2>/dev/null || true
           fi
