@@ -86,6 +86,13 @@ because it reports green.
   tradeoff, not a bug to "fix" — just don't assume this pattern is safe to
   copy for a service with a header-based auth option instead.
 
+## Commit discipline
+
+Before composing a commit message, run `git log --oneline -20` (and `git
+log -5 -- <touched paths>` for the files you changed) and match the
+existing style — subject shape, scope prefixes, body detail level —
+rather than writing in a generic format.
+
 ## Boundaries
 
 - ✅ **Always**: construct a real positive AND negative test case for any
