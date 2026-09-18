@@ -45,8 +45,17 @@ jobs:
           echo "Scanning for potential secrets..."
           # Match on commit-added secret shapes; ignore test fixtures and
           # placeholders. Not a substitute for a real secret scanner.
-          grep -rn -E '(ghp_[A-Za-z0-9]{36}|github_pat_[A-Za-z0-9_]{22,}|BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY)' \
+          # Capture to a file first: `grep ... | head -20 || echo ...` never
+          # fails the step even on a real match, because without
+          # `pipefail` the pipeline's exit status is head's (near-always 0),
+          # not grep's — confirmed live, a planted fake ghp_ token still
+          # exited 0. Check the match count directly instead.
+          matches=$(grep -rn -E '(ghp_[A-Za-z0-9]{36}|github_pat_[A-Za-z0-9_]{22,}|BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY)' \
             --include='*.sh' --include='*.py' --include='*.yml' --include='*.yaml' \
-            --exclude-dir=.git --exclude-dir=node_modules --exclude-dir=cache . \
-            | head -20 || echo "No obvious secrets found"
-          echo "Secret scan complete (basic pattern match — use dedicated tools for production)"
+            --exclude-dir=.git --exclude-dir=node_modules --exclude-dir=cache . || true)
+          if [ -n "$matches" ]; then
+            echo "$matches" | head -20
+            echo "::error::Potential secret(s) found — see matches above (basic pattern match, not a substitute for a dedicated scanner)"
+            exit 1
+          fi
+          echo "No obvious secrets found"
