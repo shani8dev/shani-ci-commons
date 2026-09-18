@@ -86,6 +86,19 @@ because it reports green.
   tradeoff, not a bug to "fix" — just don't assume this pattern is safe to
   copy for a service with a header-based auth option instead.
 
+## Boundaries
+
+- ✅ **Always**: construct a real positive AND negative test case for any
+  changed `run:` shell logic (see "Verification for any change" above) — a
+  gate that always exits 0 is worse than no gate.
+- ⚠️ **Ask first**: changing a workflow's `inputs:`/`secrets:` contract —
+  every caller listed below needs its call site checked or updated in the
+  same change, not after.
+- 🚫 **Never**: wire `build.yml`'s `build-command` or `test.yml`'s
+  `test-command` inputs to PR title/body/label content or other
+  attacker-influenced text (script-injection surface, currently safe only
+  because every caller hardcodes these as literal strings).
+
 ## Cross-repo impact — check before calling a fix complete
 
 Real current callers (verified via `grep -rln "shani-ci-commons"
