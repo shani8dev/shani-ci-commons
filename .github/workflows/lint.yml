@@ -3,8 +3,13 @@ name: Lint
 on:
   workflow_call:
     inputs:
+      language:
+        description: "Language to lint (bash, python, or all)"
+        required: false
+        default: "all"
+        type: string
       shellcheck-version:
-        description: "shellcheck version to use"
+        description: "shellcheck version to use (accepted for backward compat)"
         required: false
         default: "v0.10.0.1"
         type: string
@@ -14,14 +19,10 @@ on:
         default: "3.12"
         type: string
       pre-commit-version:
-        description: "pre-commit version to use"
+        description: "pre-commit version to use (accepted for backward compat)"
         required: false
         default: "v4.1.0"
         type: string
-    secrets:
-      PRE_COMMIT_TOKEN:
-        description: "GitHub token for pre-commit"
-        required: false
 
 jobs:
   lint:
@@ -29,28 +30,32 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Shellcheck
+      - name: Shellcheck (bash scripts)
+        if: inputs.language == 'bash' || inputs.language == 'all'
         run: |
-          if command -v shellcheck &>/dev/null; then
-            find . -name '*.sh' -not -path './.git/*' -not -path './node_modules/*' -not -path './cache/*' | head -50 | xargs -r shellcheck
+          if ! command -v shellcheck &>/dev/null; then
+            echo "shellcheck not preinstalled — installing"
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq shellcheck
+          fi
+          # tracked only (no build artifacts); --shell=bash so shebang-less
+          # scripts are checked against the caller's declared language.
+          files=$(git ls-files '*.sh' '*.bash')
+          if [ -n "$files" ]; then
+            shellcheck --shell=bash -S error $files
           else
-            echo "shellcheck not available — skipping"
+            echo "No tracked shell scripts — nothing to lint"
           fi
 
       - name: Python syntax check
+        if: inputs.language == 'python' || inputs.language == 'all'
         run: |
-          if command -v python3 &>/dev/null; then
-            python3 -m py_compile $(find . -name '*.py' -not -path './.git/*' -not -path './venv/*' -not -path './.venv/*') 2>/dev/null || echo "Python files found but compilation check skipped"
+          files=$(git ls-files '*.py')
+          if [ -n "$files" ]; then
+            python3 -m py_compile $files
           else
-            echo "python3 not available — skipping"
-          fi
-
-      - name: Pre-commit hooks
-        run: |
-          if [ -f .pre-commit-config.yaml ]; then
-            pip install pre-commit 2>/dev/null || true
-            pre-commit run --all-files 2>&1 || echo "Pre-commit hooks found issues (non-fatal)"
-          else
-            echo "No .pre-commit-config.yaml found — skipping"
+            echo "No tracked Python files — nothing to check"
           fi

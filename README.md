@@ -8,11 +8,11 @@ All 15 shani repos reference these templates via `uses:` instead of copy-pasting
 
 | Workflow | Description |
 |----------|-------------|
-| `lint.yml` | Shellcheck, py_compile, pre-commit hooks |
-| `test.yml` | Test runner with Python setup |
-| `build.yml` | Docker/Podman container build |
-| `security.yml` | Secret scanning, Trivy, dependency audit |
-| `notify-discord.yml` | Discord webhook notifications |
+| `lint.yml` | Shellcheck (bash) / py_compile (python) — `language` input (`bash`, `python`, `all`) |
+| `test.yml` | Test runner with Python setup — `language` + `test-command` inputs |
+| `build.yml` | Docker image build, manifest generation, or container build — `build-type` input (`docker`, `manifest`, `container`) |
+| `security.yml` | Keyring checksum sync, secret scanning — `scan-type` input (`checksum`, `secrets`, `all`) |
+| `notify-telegram.yml` | Telegram bot notifications — needs `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID` secrets |
 
 ## Usage
 
@@ -21,16 +21,26 @@ jobs:
   lint:
     uses: shani8dev/shani-ci-commons/.github/workflows/lint.yml@main
     with:
-      shellcheck-version: v0.10.0.1
+      language: bash
 
   test:
     uses: shani8dev/shani-ci-commons/.github/workflows/test.yml@main
     with:
+      language: bash
       test-command: bash tests/run-all.sh
 
   security:
     uses: shani8dev/shani-ci-commons/.github/workflows/security.yml@main
+    with:
+      scan-type: checksum
 ```
+
+## Notifications
+
+Chat notifications go to **Telegram** (not Discord). Set these repo secrets:
+
+- `TELEGRAM_BOT_TOKEN` — bot token from @BotFather
+- `TELEGRAM_CHAT_ID` — chat ID the bot posts into
 
 ## License
 

@@ -3,6 +3,11 @@ name: Test
 on:
   workflow_call:
     inputs:
+      language:
+        description: "Primary language (bash or python)"
+        required: false
+        default: ""
+        type: string
       test-command:
         description: "Command to run tests"
         required: false
@@ -28,11 +33,13 @@ jobs:
           fetch-depth: 0
 
       - name: Setup Python
+        if: inputs.language == 'python' || inputs.language == ''
         uses: actions/setup-python@v5
         with:
           python-version: ${{ inputs.python-version }}
 
       - name: Install dependencies
+        if: inputs.language == 'python' || inputs.language == ''
         run: |
           if [ -f requirements.txt ]; then
             pip install -r requirements.txt

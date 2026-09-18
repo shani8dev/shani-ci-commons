@@ -1,0 +1,60 @@
+name: Notify Telegram
+
+on:
+  workflow_call:
+    inputs:
+      message:
+        description: "Notification message content"
+        required: true
+        type: string
+      status:
+        description: "Build status (success, failure, error, started)"
+        required: false
+        default: "success"
+        type: string
+      repo-name:
+        description: "Display name of the repo"
+        required: false
+        default: ""
+        type: string
+    secrets:
+      TELEGRAM_BOT_TOKEN:
+        description: "Telegram bot token"
+        required: true
+      TELEGRAM_CHAT_ID:
+        description: "Telegram chat ID"
+        required: true
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Telegram notification
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TELEGRAM_MESSAGE: ${{ inputs.message }}
+          TELEGRAM_STATUS: ${{ inputs.status }}
+          TELEGRAM_REPO: ${{ inputs.repo-name }}
+        run: |
+          if [ -z "$TELEGRAM_BOT_TOKEN" ] || [ -z "$TELEGRAM_CHAT_ID" ]; then
+            echo "::warning::TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID not set — skipping notification"
+            exit 0
+          fi
+          case "$TELEGRAM_STATUS" in
+            success) EMOJI="✅" ;;
+            failure) EMOJI="❌" ;;
+            started) EMOJI="🚀" ;;
+            *)        EMOJI="ℹ️" ;;
+          esac
+          if [ -n "$TELEGRAM_REPO" ]; then
+            TEXT="${EMOJI} **${TELEGRAM_REPO}** — ${TELEGRAM_MESSAGE} (${TELEGRAM_STATUS})"
+          else
+            TEXT="${EMOJI} ${TELEGRAM_MESSAGE} (${TELEGRAM_STATUS})"
+          fi
+          PAYLOAD=$(jq -n --arg chat "$TELEGRAM_CHAT_ID" --arg text "$TEXT" \
+            '{chat_id: $chat, text: $text, parse_mode: "Markdown"}')
+          curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            -H "Content-Type: application/json" \
+            -d "$PAYLOAD" \
+            || echo "Telegram notification failed"

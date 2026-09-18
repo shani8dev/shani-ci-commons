@@ -3,15 +3,20 @@ name: Build
 on:
   workflow_call:
     inputs:
-      docker-image:
-        description: "Docker image to use for build"
+      build-type:
+        description: "Type of build (docker, manifest, or container)"
         required: false
-        default: "docker.io/shrinivasvkumbhar/shani-builder"
+        default: ""
+        type: string
+      docker-image:
+        description: "Docker image to use for container build"
+        required: false
+        default: ""
         type: string
       build-command:
         description: "Command to run inside container"
         required: false
-        default: "make_pkg.sh --all"
+        default: ""
         type: string
       runtime:
         description: "Container runtime (docker or podman)"
@@ -28,20 +33,31 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup container runtime
+      - name: Docker image build
+        if: inputs.build-type == 'docker'
         run: |
-          if [ "${{ inputs.runtime }}" = "podman" ]; then
-            sudo apt-get install -y podman 2>/dev/null || true
-          else
-            sudo apt-get install -y docker.io 2>/dev/null || true
+          docker build -f ./docker/Dockerfile -t shani-builder:ci .
+
+      - name: Manifest build (generate-manifest.js)
+        if: inputs.build-type == 'manifest'
+        run: |
+          node ./generate-manifest.js
+
+      - name: Container build
+        if: inputs.build-type == 'container'
+        run: |
+          if [ -z "${{ inputs.docker-image }}" ]; then
+            echo "::error::build-type 'container' requires docker-image input"
+            exit 1
           fi
-
-      - name: Pull builder image
-        run: |
-          timeout 60 ${{ inputs.runtime }} pull ${{ inputs.docker-image }} || echo "Could not pull image — using cached"
-
-      - name: Run build
-        run: |
-          echo "Build command: ${{ inputs.build-command }}"
-          echo "Note: Full build requires shani-builder container setup"
-          echo "This workflow verifies the build pipeline is wired correctly"
+          timeout 60 ${{ inputs.runtime }} pull "${{ inputs.docker-image }}" || {
+            echo "::warning::Could not pull ${{ inputs.docker-image }} — using cached if present"
+          }
+          if [ -z "${{ inputs.build-command }}" ]; then
+            echo "::error::build-type 'container' requires build-command input"
+            exit 1
+          fi
+          ${{ inputs.runtime }} run --rm \
+            -v "$PWD":/work -w /work \
+            "${{ inputs.docker-image }}" \
+            bash -lc "${{ inputs.build-command }}"
