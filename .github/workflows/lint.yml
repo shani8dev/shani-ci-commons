@@ -43,7 +43,16 @@ jobs:
           fi
           # tracked only (no build artifacts); --shell=bash so shebang-less
           # scripts are checked against the caller's declared language.
-          files=$(git ls-files '*.sh' '*.bash')
+          # Skip symlinks whose target isn't present on this checkout:
+          # shani-pkgbuilds commits run_in_container.sh as a symlink to
+          # ../shani-install-media/run_in_container.sh, which shellcheck
+          # can't open when the sibling repo isn't checked out alongside
+          # (exit 2, "openBinaryFile: does not exist"). `-r` follows the
+          # symlink, so it's false for a broken one and true for a real
+          # file or a valid symlink — verified live against both shapes.
+          files=$(git ls-files '*.sh' '*.bash' | while IFS= read -r f; do
+            [[ -r "$f" ]] && printf '%s\n' "$f"
+          done)
           if [ -n "$files" ]; then
             shellcheck --shell=bash -S error $files
           else

@@ -23,12 +23,22 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Checkout shani-keyring (sibling — test harness expects ../shani-keyring)
+      # The keyring repo is checked out as a CHILD path (actions/checkout@v4
+      # rejects any `path` resolving outside the caller's repo dir — the
+      # sibling `../shani-keyring` layout is how every recent Security run
+      # died). It CANNOT be `shani-keyring`: shani-pkgbuilds already tracks
+      # its own `shani-keyring/` directory (that repo's PKGBUILD + .install),
+      # and checkout@v4 refuses to clone into a non-empty existing dir
+      # ("destination path already exists and is not an empty directory"),
+      # which is the failure that replaced the original path-trap. Use the
+      # collision-free name `shani-keyring-repo` instead. The test harness
+      # auto-detects whichever layout it's given.
+      - name: Checkout shani-keyring
         if: inputs.scan-type == 'checksum' || inputs.scan-type == 'all'
         uses: actions/checkout@v4
         with:
           repository: shani8dev/shani-keyring
-          path: ../shani-keyring
+          path: shani-keyring-repo
 
       - name: Keyring checksum sync (TDD harness)
         if: inputs.scan-type == 'checksum' || inputs.scan-type == 'all'

@@ -41,13 +41,24 @@ jobs:
       - name: Install dependencies
         if: inputs.language == 'python' || inputs.language == ''
         run: |
-          if [ -f requirements.lock ]; then
+          # requirements-test.txt (requirements.txt + pytest + httpx) first —
+          # it is what makes the test step's `pytest` actually runnable.
+          # Verified live: the previous order (lock/txt first) left pytest
+          # absent in shani-insights and the test step died with
+          # "pytest: command not found" (exit 127).
+          if [ -f requirements-test.txt ]; then
+            pip install -r requirements-test.txt
+          elif [ -f requirements.lock ]; then
             pip install -r requirements.lock
           elif [ -f requirements.txt ]; then
             pip install -r requirements.txt
           elif [ -f pyproject.toml ]; then
             pip install -e ".[dev]" 2>/dev/null || pip install pytest 2>/dev/null || true
           fi
+          # Belt-and-braces: ensure pytest/httpx exist even if no test
+          # requirements file was present, rather than letting the test
+          # step fail with 127.
+          pip install pytest httpx 2>/dev/null || true
 
       - name: Run tests
         run: ${{ inputs.test-command }}
