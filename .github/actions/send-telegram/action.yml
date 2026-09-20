@@ -45,7 +45,11 @@ runs:
         if [ -n "$TELEGRAM_REPO" ]; then
           TEXT="${EMOJI} **${TELEGRAM_REPO}** — ${TELEGRAM_MESSAGE} (${TELEGRAM_STATUS})"
         else
-          TEXT="${EMOJI} ${TELEGRAM_MESSAGE} (${TELEGRAM_STATUS})"
+          # Inline-caller shape: message already carries its own status
+          # wording ("Build Started", "Build Complete"), so no suffix —
+          # the (status) suffix is only for the workflow_call path, which
+          # always passes a repo-name.
+          TEXT="${EMOJI} ${TELEGRAM_MESSAGE}"
         fi
         PAYLOAD=$(jq -n --arg chat "$TELEGRAM_CHAT_ID" --arg text "$TEXT" \
           '{chat_id: $chat, text: $text, parse_mode: "Markdown"}')
