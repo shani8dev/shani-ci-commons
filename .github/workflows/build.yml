@@ -23,6 +23,11 @@ on:
         required: false
         default: "docker"
         type: string
+      manifest-script:
+        description: "Script to run for build-type 'manifest' (repo-relative)"
+        required: false
+        default: "generate-manifest.js"
+        type: string
 
 jobs:
   build:
@@ -38,10 +43,10 @@ jobs:
         run: |
           docker build -f ./docker/Dockerfile -t shani-builder:ci .
 
-      - name: Manifest build (generate-manifest.js)
+      - name: Manifest build (${{ inputs.manifest-script }})
         if: inputs.build-type == 'manifest'
         run: |
-          node ./generate-manifest.js
+          node ./${{ inputs.manifest-script }}
 
       - name: Container build
         if: inputs.build-type == 'container'

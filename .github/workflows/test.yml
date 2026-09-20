@@ -18,10 +18,6 @@ on:
         required: false
         default: "3.12"
         type: string
-    secrets:
-      TEST_TOKEN:
-        description: "Test environment token"
-        required: false
 
 jobs:
   test:

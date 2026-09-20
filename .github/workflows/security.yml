@@ -45,6 +45,21 @@ jobs:
         run: |
           bash tests/test-check-keyring-sync.sh
 
+      # Absorbs the shellcheck step shani-pkgbuilds' standalone
+      # check-keyring-sync.yml used to provide (deleted in the D3
+      # consolidation — its other steps are identical to this checksum
+      # branch). Guarded by file existence so callers without a
+      # scripts/check-keyring-sync.sh (e.g. a future all/checksum caller
+      # that isn't shani-pkgbuilds) don't fail.
+      - name: Shellcheck the checksum checker
+        if: (inputs.scan-type == 'checksum' || inputs.scan-type == 'all') && hashFiles('scripts/check-keyring-sync.sh') != ''
+        run: |
+          if command -v shellcheck &>/dev/null; then
+            shellcheck scripts/check-keyring-sync.sh
+          else
+            echo "shellcheck not available — skipping"
+          fi
+
       - name: Secret scanning
         if: inputs.scan-type == 'secrets' || inputs.scan-type == 'all'
         run: |

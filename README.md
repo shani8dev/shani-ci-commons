@@ -14,9 +14,16 @@ check rather than calling `security.yml`.
 |----------|-------------|
 | `lint.yml` | Shellcheck (bash) / py_compile (python) — `language` input (`bash`, `python`, `all`) |
 | `test.yml` | Test runner with Python setup — `language` + `test-command` inputs |
-| `build.yml` | Docker image build, manifest generation, or container build — `build-type` input (`docker`, `manifest`, `container`) |
+| `build.yml` | Docker image build, manifest generation (runs the repo's `manifest-script`, default `generate-manifest.js`), or container build — `build-type` input (`docker`, `manifest`, `container`) |
 | `security.yml` | Keyring checksum sync, secret scanning — `scan-type` input (`checksum`, `secrets`, `all`) |
 | `notify-telegram.yml` | Telegram bot notifications — needs `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID` secrets |
+| `validate-html.yml` | html5lib strict parse + SRI-hash verification + staleness warning for a single `index.html` — `strict-parse` / `require-sri` / `stale-days` inputs |
+
+## Actions
+
+| Action | Description |
+|--------|-------------|
+| `send-telegram` | Composite action for Telegram bot notifications — `status` (`success`/`failure`/`started`) selects the emoji; reads `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID` secrets directly. No-op with a warning when the secrets are absent. Use this instead of pasting inline curl blocks. |
 
 ## Usage
 
@@ -37,6 +44,12 @@ jobs:
     uses: shani8dev/shani-ci-commons/.github/workflows/security.yml@main
     with:
       scan-type: checksum
+
+  validate:
+    uses: shani8dev/shani-ci-commons/.github/workflows/validate-html.yml@main
+    with:
+      strict-parse: true
+      require-sri: false
 ```
 
 ## Notifications

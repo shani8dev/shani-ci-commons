@@ -10,12 +10,16 @@ done.
 Shared GitHub Actions **reusable workflows** for the Shanios ecosystem —
 `lint.yml` (shellcheck/py_compile), `test.yml` (pytest/bash test runners),
 `build.yml` (docker/manifest/container builds), `security.yml` (shani-keyring
-checksum sync + basic secret-pattern scanning), and `notify-telegram.yml`
-(chat notifications). Other repos reference these via `uses:
-shani8dev/shani-ci-commons/.github/workflows/<name>.yml@main` instead of
-hand-rolling their own workflow logic. There is no `actions/` composite-action
-directory — despite IMPLEMENTATION-ROADMAP.md's original proposal mentioning
-one, only reusable `workflow_call` workflows were actually built.
+checksum sync + basic secret-pattern scanning), `notify-telegram.yml`
+(chat notifications), and `validate-html.yml` (html5lib strict parse +
+SRI-hash verification + staleness warning for single-page static sites;
+the union of what `shani-website`/`shani-wiki` once copy-pasted). Other
+repos reference these via `uses: shani8dev/shani-ci-commons/.github/workflows/<name>.yml@main`
+instead of hand-rolling their own workflow logic. There is also one
+**composite action**, `.github/actions/send-telegram/`, which replaces the
+inline, copy-pasted Telegram curl blocks in builder/install-media workflows
+— composite actions can read `secrets` directly, which a workflow_call
+cannot do for job-level env.
 
 ## Empirical verification (mandatory)
 
@@ -116,10 +120,13 @@ workspace, 2026-09-18):
 - `shani-blog` — `build-manifest.yml`, `notify-telegram.yml`
 - `shani-builder` — `build.yml`, `notify-telegram.yml`
 - `shani-docs` — `build-manifest.yml`
-- `shani-install-media` — `build.yml`, `build-image.yml`, `notify-telegram.yml`
+- `shani-install-media` — `build.yml`, `build-image.yml` (inline Telegram
+  steps → `send-telegram` composite once D2 lands)
 - `shani-platform` — `ci.yml`
 - `shani-insights` — `ci.yml`
 - `shani-fleet` — `ci.yml`
+- `shani-website` / `shani-wiki` — `validate-html.yml` (D1, once the leaf
+  repos migrate)
 
 **Not** consumers (each rolled its own standalone workflow instead):
 `shani-repo`, `shani-chronoa`, `shani-backup`, `shani-keyring`,

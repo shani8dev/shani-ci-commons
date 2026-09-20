@@ -1,0 +1,123 @@
+name: Validate HTML
+
+# Shared static-site HTML validation — the union of what
+# shani-website/.github/workflows/ci.yml and shani-wiki/.github/workflows/ci.yml
+# once copy-pasted. Both check the same three properties (html5lib parse,
+# SRI-hash verification, content staleness); the only real differences are
+# whether the parse is strict and whether a total lack of integrity=
+# resources is an error (wiki, which pins cdnjs) or fine (website, which
+# may legitimately have no CDN resources). Those become inputs; every
+# caller is now two lines instead of ~110.
+
+on:
+  workflow_call:
+    inputs:
+      strict-parse:
+        description: "Fail on any html5lib parse error (strict parser mode)"
+        required: false
+        default: false
+        type: boolean
+      require-sri:
+        description: "Fail if no <link>/<script> carries an integrity= hash"
+        required: false
+        default: true
+        type: boolean
+      stale-days:
+        description: "Warn (non-fatal) when index.html's last commit is older than this (days)"
+        required: false
+        default: 90
+        type: number
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install html5lib
+        run: python3 -m pip install --quiet html5lib
+
+      - name: Validate index.html (html5lib parse, SRI, staleness)
+        env:
+          STRICT_PARSE: ${{ inputs.strict-parse }}
+          REQUIRE_SRI: ${{ inputs.require-sri }}
+          STALE_DAYS: ${{ inputs.stale-days }}
+        run: |
+          # (1) html5lib parse — 0 parser errors. html5lib is
+          # error-tolerant by design (it auto-corrects like a browser), so
+          # non-empty HTMLParser.errors == malformed markup that a real
+          # browser would silently mis-render. In strict mode the parser
+          # raises ParseError on the first error instead of collecting —
+          # both paths fail the step, but with a readable message.
+          parser = html5lib.HTMLParser(strict=STRICT)
+          try:
+              parser.parse(doc)
+          except html5lib.html5parser.ParseError as e:
+              print("::error::index.html failed strict html5lib parse: %s" % e)
+              sys.exit(1)
+          errs = parser.errors
+          if errs:
+              print("::error::index.html has %d html5lib parse errors" % len(errs))
+              for e in errs[:10]:
+                  print("  parse error:", e)
+              sys.exit(1)
+          print("html5lib parse: 0 errors")
+
+          # (2) SRI verification on every <link>/<script> carrying integrity=
+          tagged = re.findall(
+              r'<(?:link|script)[^>]*?(?:src|href)='
+              '"([^"]+)"[^>]*?integrity="([^"]+)"', doc, flags=re.IGNORECASE)
+          if not tagged:
+              if REQUIRE_SRI:
+                  print("::error::no CDN resource with integrity= found in index.html")
+                  sys.exit(1)
+              print("SRI: no integrity= resources — nothing to verify")
+          else:
+              sri_fail = False
+              for url, integrity in tagged:
+                  algo, _, pinned = integrity.partition("-")
+                  try:
+                      data = urllib.request.urlopen(url, timeout=20).read()
+                  except Exception as e:
+                      # Network blips happen in CI; do not fail the build on
+                      # a transient fetch, but flag it loudly so a real SRI
+                      # regression can't hide behind "the network was down".
+                      print("::warning::SRI fetch failed for %s: %r (verify manually)" % (url, e))
+                      continue
+                  dig = hashlib.new(algo, data).digest()
+                  computed = base64.b64encode(dig).decode()
+                  if computed != pinned:
+                      print("::error::SRI mismatch for %s" % url)
+                      print("  pinned   : %s-%s" % (algo, pinned))
+                      print("  computed : %s-%s" % (algo, computed))
+                      sri_fail = True
+                  else:
+                      print("SRI match: %s (%s)" % (url, algo))
+              if sri_fail:
+                  sys.exit(1)
+
+          # (3) staleness warning (non-fatal)
+          try:
+              ts = subprocess.check_output(
+                  ["git", "log", "-1", "--format=%ct", "--", "index.html"],
+              ).decode().strip()
+              if ts:
+                  now = int(subprocess.check_output(["date", "+%s"]).decode().strip())
+                  age_days = (now - int(ts)) / 86400
+                  if age_days > STALE_DAYS:
+                      print("::warning::index.html last changed %.0f days ago (> %d) — content may be stale"
+                            % (age_days, STALE_DAYS))
+                  else:
+                      print("staleness: index.html last changed %.0f days ago (within %d-day window)"
+                            % (age_days, STALE_DAYS))
+          except subprocess.CalledProcessError:
+              print("::warning::cannot determine last commit date for index.html")
+          print("All HTML checks passed.")
+          PY
