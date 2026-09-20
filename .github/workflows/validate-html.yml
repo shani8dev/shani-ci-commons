@@ -56,6 +56,24 @@ jobs:
           # browser would silently mis-render. In strict mode the parser
           # raises ParseError on the first error instead of collecting —
           # both paths fail the step, but with a readable message.
+          # NOTE: html5lib.parse() does NOT accept a `strict` kwarg on
+          # html5lib 1.1 (TypeError) — the flag lives on the parser object.
+          # (2) SRI — verify every <link>/<script> carrying integrity=.
+          # Fails if a tag is added without its hash, if a pinned hash no
+          # longer matches the live CDN bytes, or (require-sri) if no CDN
+          # resource carries integrity= at all.
+          # (3) staleness — warn (non-fatal) if index.html's last commit
+          # is older than STALE_DAYS so rot is surfaced, not silently kept.
+          python3 - <<'PY'
+          import base64, hashlib, os, re, subprocess, sys, urllib.request
+          import html5lib
+
+          STRICT = os.environ.get("STRICT_PARSE", "false") == "true"
+          REQUIRE_SRI = os.environ.get("REQUIRE_SRI", "true") == "true"
+          STALE_DAYS = int(os.environ.get("STALE_DAYS", "90"))
+          doc = open("index.html", encoding="utf-8").read()
+
+          # (1) html5lib parse
           parser = html5lib.HTMLParser(strict=STRICT)
           try:
               parser.parse(doc)
