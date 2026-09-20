@@ -2,7 +2,11 @@
 
 Shared GitHub Actions reusable workflows for the Shanios ecosystem.
 
-All 19 shani repos reference these templates via `uses:` instead of copy-pasting workflow files.
+These templates are referenced by 9 of the 19 shani repos via `uses:`
+instead of copy-pasting workflow files. The other 10 repos roll their own
+standalone workflows — see "Cross-repo impact" below for the full caller
+list, including `shani-keyring`, which re-implements its own checksum-sync
+check rather than calling `security.yml`.
 
 ## Available Workflows
 
