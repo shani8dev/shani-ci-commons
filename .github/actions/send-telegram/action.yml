@@ -1,11 +1,12 @@
 name: Send Telegram notification
 description: >-
   Send a status notification to the Shanios Telegram channel. No-op (exit 0,
-  with a warning) when the TELEGRAM_* secrets are absent, so a repo without
-  them does not fail its workflows. Replaces the 9+ copy-pasted inline curl
-  blocks that used to live in build-ami.yml / promote-stable.yml /
-  build-image.yml — composite actions can read `secrets` directly, which the
-  workflow_call equivalent cannot do for job-level env.
+  with a warning) when either token input is empty, so a repo without the
+  TELEGRAM_* secrets does not fail its workflows. Replaces the 9+
+  copy-pasted inline curl blocks that used to live in build-ami.yml /
+  promote-stable.yml / build-image.yml. Composite actions cannot read the
+  calling repo's `secrets` context — callers MUST pass bot-token/chat-id
+  as inputs from their own step, where ${{ secrets.* }} is legal.
 
 inputs:
   status:
@@ -19,6 +20,14 @@ inputs:
     description: "Display name of the repo, rendered after the emoji"
     required: false
     default: ""
+  bot-token:
+    description: "Telegram bot token — pass ${{ secrets.TELEGRAM_BOT_TOKEN }} at the call site"
+    required: false
+    default: ""
+  chat-id:
+    description: "Telegram chat ID — pass ${{ secrets.TELEGRAM_CHAT_ID }} at the call site"
+    required: false
+    default: ""
 
 runs:
   using: composite
@@ -26,8 +35,8 @@ runs:
     - name: Send Telegram notification
       shell: bash
       env:
-        TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-        TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        TELEGRAM_BOT_TOKEN: ${{ inputs.bot-token }}
+        TELEGRAM_CHAT_ID: ${{ inputs.chat-id }}
         TELEGRAM_MESSAGE: ${{ inputs.message }}
         TELEGRAM_STATUS: ${{ inputs.status }}
         TELEGRAM_REPO: ${{ inputs.repo-name }}

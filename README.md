@@ -23,7 +23,7 @@ check rather than calling `security.yml`.
 
 | Action | Description |
 |--------|-------------|
-| `send-telegram` | Composite action for Telegram bot notifications — `status` (`success`/`failure`/`started`) selects the emoji; reads `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID` secrets directly. No-op with a warning when the secrets are absent. Use this instead of pasting inline curl blocks. |
+| `send-telegram` | Composite action for Telegram bot notifications — `status` (`success`/`failure`/`started`) selects the emoji; pass `bot-token: ${{ secrets.TELEGRAM_BOT_TOKEN }}` and `chat-id: ${{ secrets.TELEGRAM_CHAT_ID }}` at the call site (composite actions cannot read `secrets` themselves). No-op with a warning when either token is empty. Use this instead of pasting inline curl blocks. |
 
 ## Usage
 

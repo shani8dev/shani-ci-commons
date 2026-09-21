@@ -17,9 +17,10 @@ the union of what `shani-website`/`shani-wiki` once copy-pasted). Other
 repos reference these via `uses: shani8dev/shani-ci-commons/.github/workflows/<name>.yml@main`
 instead of hand-rolling their own workflow logic. There is also one
 **composite action**, `.github/actions/send-telegram/`, which replaces the
-inline, copy-pasted Telegram curl blocks in builder/install-media workflows
-— composite actions can read `secrets` directly, which a workflow_call
-cannot do for job-level env.
+inline, copy-pasted Telegram curl blocks in builder/install-media workflows.
+Composite actions CANNOT read the caller repo's `secrets` context (only
+`inputs`, `github`, `env`, `jobs` contexts are available inside them) —
+tokens must be passed in as `bot-token`/`chat-id` inputs at each call site.
 
 ## Empirical verification (mandatory)
 
