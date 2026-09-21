@@ -6,7 +6,8 @@ description: >-
   copy-pasted inline curl blocks that used to live in build-ami.yml /
   promote-stable.yml / build-image.yml. Composite actions cannot read the
   calling repo's `secrets` context — callers MUST pass bot-token/chat-id
-  as inputs from their own step, where ${{ secrets.* }} is legal.
+  as inputs from their own step, where the caller's secrets context
+  (secrets.TELEGRAM_BOT_TOKEN / secrets.TELEGRAM_CHAT_ID) is legal.
 
 inputs:
   status:
@@ -21,11 +22,11 @@ inputs:
     required: false
     default: ""
   bot-token:
-    description: "Telegram bot token — pass ${{ secrets.TELEGRAM_BOT_TOKEN }} at the call site"
+    description: "Telegram bot token — pass the caller's secrets.TELEGRAM_BOT_TOKEN value here"
     required: false
     default: ""
   chat-id:
-    description: "Telegram chat ID — pass ${{ secrets.TELEGRAM_CHAT_ID }} at the call site"
+    description: "Telegram chat ID — pass the caller's secrets.TELEGRAM_CHAT_ID value here"
     required: false
     default: ""
 
