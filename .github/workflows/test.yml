@@ -18,6 +18,16 @@ on:
         required: false
         default: "."
         type: string
+      apt-packages:
+        description: "Ubuntu packages to install first (e.g. python3-gi gir1.2-gtk-4.0)"
+        required: false
+        default: ""
+        type: string
+      system-site-packages:
+        description: "Test in a venv over the runner's /usr/bin/python3 and its distro packages (PyGObject/GTK) instead of setup-python"
+        required: false
+        default: false
+        type: boolean
       python-version:
         description: "Python version for test dependencies"
         required: false
@@ -33,11 +43,24 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Install Ubuntu packages
+        if: inputs.apt-packages != ''
+        run: sudo apt-get update -q && sudo apt-get install -y -q ${{ inputs.apt-packages }}
+
       - name: Setup Python
-        if: inputs.language == 'python' || inputs.language == ''
+        if: (inputs.language == 'python' || inputs.language == '') && !inputs.system-site-packages
         uses: actions/setup-python@v5
         with:
           python-version: ${{ inputs.python-version }}
+
+      # PyGObject cannot be pip-built without cairo/GI headers and does not
+      # see the distro typelibs from a setup-python interpreter; a venv over
+      # the system python sees both (python3-gi + gir1.2-*).
+      - name: System-site venv
+        if: inputs.system-site-packages
+        run: |
+          /usr/bin/python3 -m venv --system-site-packages "$RUNNER_TEMP/venv"
+          echo "$RUNNER_TEMP/venv/bin" >> "$GITHUB_PATH"
 
       - name: Install dependencies
         if: inputs.language == 'python' || inputs.language == ''
