@@ -75,7 +75,7 @@ jobs:
           # `pipefail` the pipeline's exit status is head's (near-always 0),
           # not grep's — confirmed live, a planted fake ghp_ token still
           # exited 0. Check the match count directly instead.
-          matches=$(grep -rn -E '(ghp_[A-Za-z0-9]{36}|github_pat_[A-Za-z0-9_]{22,}|BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY)' \
+          matches=$(grep -rn -E '(ghp_[A-Za-z0-9]{36}|github_pat_[A-Za-z0-9_]{22,}|-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----)' \
             --include='*.sh' --include='*.py' --include='*.yml' --include='*.yaml' \
             --exclude-dir=.git --exclude-dir=node_modules --exclude-dir=cache . || true)
           if [ -n "$matches" ]; then
