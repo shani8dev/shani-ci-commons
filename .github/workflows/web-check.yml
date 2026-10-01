@@ -1,0 +1,136 @@
+name: Web check (real browser)
+# Real-browser checks of a static site, shared by shani-website, -wiki, -docs
+# and -blog. It runs shani-testbed's lib/web_client.py - headless Chrome over
+# the DevTools protocol, standard-library Python, nothing installed - against
+# the caller's checkout served the way GitHub Pages serves it (lib/web_serve.py:
+# 404.html with status 404 for unknown paths). It catches what html5lib and a
+# link checker cannot: uncaught exceptions, console errors, failed loads,
+# Chrome's own issue reports (mixed content, CSP, cookies), hosts contacted
+# outside an allowlist, unnamed interactive elements, missing <title>/lang,
+# and on each built-in device - desktop, tablet, mobile (touch emulated) - its
+# own load errors, horizontal scroll, clipped content and tap targets; the
+# page's features operated for real (menu, search, theme, dialogs, copy,
+# print, contrast in both modes, keyboard focus, reflow - shani-testbed's
+# lib/web_features.py); LCP/CLS, the service worker
+# serving the page offline, and errors on crawled same-origin pages.
+#
+# A full-page screenshot per device x mode (light, dark) and a JSON report are uploaded as an
+# artifact either way. With enforce: false a failing check is reported (job
+# summary + annotation) without failing the job - for a site with known
+# findings that are being fixed.
+
+on:
+  workflow_call:
+    inputs:
+      path:
+        description: "Directory in the caller's checkout that is the site root"
+        required: false
+        default: "."
+        type: string
+      allow-hosts:
+        description: "Comma-separated hosts the pages may contact besides their own (CDNs, fonts)"
+        required: false
+        default: ""
+        type: string
+      expect:
+        description: "CSS selector that must exist on the start page (empty: none)"
+        required: false
+        default: ""
+        type: string
+      offline:
+        description: "Check that the service worker serves the page with the network cut"
+        required: false
+        default: false
+        type: boolean
+      crawl:
+        description: "Also load up to N same-origin pages linked from the start page"
+        required: false
+        default: 20
+        type: number
+      budget-cls:
+        description: "Fail if Cumulative Layout Shift exceeds this (0 = no budget; 0.1 is Google's 'good')"
+        required: false
+        default: 0
+        type: number
+      ignore:
+        description: "Regex of problem strings to accept (name each one, never everything)"
+        required: false
+        default: ""
+        type: string
+      enforce:
+        description: "Fail the job when a check fails (false = report only)"
+        required: false
+        default: true
+        type: boolean
+      testbed-ref:
+        description: "shani-testbed ref providing lib/web_client.py"
+        required: false
+        default: main
+        type: string
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: site
+
+      - uses: actions/checkout@v4
+        with:
+          repository: shani8dev/shani-testbed
+          ref: ${{ inputs.testbed-ref }}
+          path: testbed
+          sparse-checkout: lib
+
+      - name: Browser checks
+        id: check
+        env:
+          SITE: site/${{ inputs.path }}
+          ALLOW: ${{ inputs.allow-hosts }}
+          EXPECT: ${{ inputs.expect }}
+          OFFLINE: ${{ inputs.offline }}
+          CRAWL: ${{ inputs.crawl }}
+          BUDGET_CLS: ${{ inputs.budget-cls }}
+          IGNORE: ${{ inputs.ignore }}
+        run: |
+          set -u
+          # detached from the step's output: a background child holding stdout
+          # open keeps the step (and any pipe it is in) from ever finishing
+          python3 testbed/lib/web_serve.py "$SITE" 8700 >/dev/null 2>&1 &
+          srv=$!
+          for i in $(seq 50); do curl -fsS -o /dev/null http://127.0.0.1:8700/ 2>/dev/null && break; sleep 0.2; done
+          args=(--url=http://127.0.0.1:8700/ --crawl="$CRAWL" --shots=out/shots --json=out/report.json)
+          IFS=',' read -ra hosts <<<"$ALLOW"
+          for h in "${hosts[@]}"; do h="${h// /}"; [ -n "$h" ] && args+=(--allow-host="$h"); done
+          [ -n "$EXPECT" ] && args+=(--expect="$EXPECT")
+          [ "$OFFLINE" = true ] && args+=(--offline)
+          [ "$BUDGET_CLS" != 0 ] && args+=(--budget-cls="$BUDGET_CLS")
+          [ -n "$IGNORE" ] && args+=(--ignore="$IGNORE")
+          mkdir -p out
+          rc=0
+          python3 testbed/lib/web_client.py "${args[@]}" | tee out/result.txt || rc=$?
+          {
+            echo "### Web check"
+            echo '```'
+            grep -E '^(RESULT|  \|)' out/result.txt | grep -v '| shot ' | cut -c1-250
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          grep -E '^RESULT .* FAIL' out/result.txt | while read -r l; do echo "::warning title=web check::${l#RESULT }"; done
+          kill "$srv" 2>/dev/null
+          echo "rc=$rc" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: web-check
+          path: out/
+          retention-days: 14
+
+      - name: Enforce
+        if: inputs.enforce && steps.check.outputs.rc != '0'
+        run: |
+          echo "::error::web check failed - see the job summary and the web-check artifact"
+          exit 1

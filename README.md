@@ -18,6 +18,7 @@ check rather than calling `security.yml`.
 | `security.yml` | Keyring checksum sync, secret scanning — `scan-type` input (`checksum`, `secrets`, `all`) |
 | `notify-telegram.yml` | Telegram bot notifications — needs `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID` secrets |
 | `validate-html.yml` | html5lib strict parse + SRI-hash verification + staleness warning for a single `index.html` — `strict-parse` / `require-sri` / `stale-days` inputs |
+| `web-check.yml` | real headless-Chrome checks of a static site served as GitHub Pages serves it (shani-testbed `lib/web_client.py`): exceptions, console errors, failed loads, Chrome issues, CSP, egress allowlist, a11y names, overflow, LCP/CLS, offline via the service worker, crawl — `allow-hosts` / `offline` / `crawl` / `budget-cls` / `ignore` / `enforce` inputs; screenshots + JSON report as an artifact |
 
 ## Actions
 
