@@ -13,7 +13,7 @@ check rather than calling `security.yml`.
 | Workflow | Description |
 |----------|-------------|
 | `lint.yml` | Shellcheck (bash) / py_compile (python) — `language` input (`bash`, `python`, `all`) |
-| `test.yml` | Test runner with Python setup — `language` + `test-command` inputs |
+| `test.yml` | Test runner with Python setup — `language` + `test-command` inputs, plus `apt-packages`, `system-site-packages` and `extra-repositories` (JSON list of `{"repo", "path"}` sibling checkouts for suites that assert against another repo's files) |
 | `build.yml` | Docker image build, manifest generation (runs the repo's `manifest-script`, default `generate-manifest.js`), or container build — `build-type` input (`docker`, `manifest`, `container`) |
 | `security.yml` | Keyring checksum sync, secret scanning — `scan-type` input (`checksum`, `secrets`, `all`) |
 | `notify-telegram.yml` | Telegram bot notifications — needs `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID` secrets |
@@ -40,6 +40,16 @@ jobs:
     with:
       language: bash
       test-command: bash tests/run-all.sh
+
+  # A suite that reads a sibling repo's files (shani-chronoa asserts against
+  # shani-pkgbuilds/shani-chronoa/PKGBUILD). The ../ path puts the clone
+  # outside the workspace, which actions/checkout requires.
+  test-with-sibling:
+    uses: shani8dev/shani-ci-commons/.github/workflows/test.yml@main
+    with:
+      language: python
+      system-site-packages: true
+      extra-repositories: '[{"repo": "shani8dev/shani-pkgbuilds", "path": "../shani-pkgbuilds"}]'
 
   security:
     uses: shani8dev/shani-ci-commons/.github/workflows/security.yml@main

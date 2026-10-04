@@ -26,8 +26,20 @@ on:
       system-site-packages:
         description: "Test in a venv over the runner's /usr/bin/python3 and its distro packages (PyGObject/GTK) instead of setup-python"
         required: false
-        default: false
         type: boolean
+        default: false
+      extra-repositories:
+        description: >-
+          Other repos to check out beside this one before the tests, as JSON:
+          [{"repo": "owner/name", "path": "../name"}]. For suites that assert
+          against a sibling checkout's files (shani-chronoa reads
+          shani-pkgbuilds/shani-chronoa/PKGBUILD). The path is relative to the
+          workspace, and a ../ prefix puts the clone outside it, which is what
+          actions/checkout needs. Shallow, at the default branch: these are
+          inputs to the tests, not the thing under test.
+        required: false
+        type: string
+        default: "[]"
       python-version:
         description: "Python version for test dependencies"
         required: false
@@ -42,6 +54,24 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Check out sibling repos the tests read
+        if: inputs.extra-repositories != '[]' && inputs.extra-repositories != ''
+        env:
+          EXTRA_REPOS: ${{ inputs.extra-repositories }}
+        run: |
+          set -euo pipefail
+          echo "$EXTRA_REPOS" | jq -r '.[] | "\(.repo)\t\(.path)"' | while IFS=$'\t' read -r repo path; do
+            [ -n "$repo" ] || continue
+            # The path is resolved against $GITHUB_WORKSPACE's parent, because
+            # actions/checkout refuses a path inside the workspace.
+            dest="$GITHUB_WORKSPACE/$path"
+            mkdir -p "$(dirname "$dest")"
+            echo "::group::checkout $repo -> $path"
+            git clone --depth 1 "https://github.com/$repo.git" "$dest"
+            echo "::endgroup::"
+          done
+          ls -d "$GITHUB_WORKSPACE"/../*/ | sed 's/^/sibling: /'
 
       - name: Install Ubuntu packages
         if: inputs.apt-packages != ''
