@@ -45,10 +45,19 @@ on:
         required: false
         default: "3.12"
         type: string
+      runs-on:
+        description: >-
+          Runner image. With system-site-packages the suite tests against the
+          runner's own GTK/libadwaita/PyGObject, so a repo that needs a newer
+          stack than ubuntu-latest ships (shani-chronoa needs libadwaita newer
+          than 24.04's 1.5) names the image here.
+        required: false
+        default: "ubuntu-latest"
+        type: string
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.runs-on }}
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
